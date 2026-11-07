@@ -41,14 +41,19 @@ class MainActivity : ComponentActivity() {
                     primary = Orange, background = Bg, surface = Panel, onSurface = Color.White
                 )
             ) {
-                LauncherScreen()
+                var showSettings by remember { mutableStateOf(false) }
+                if (showSettings) {
+                    SettingsScreen(onBack = { showSettings = false })
+                } else {
+                    LauncherScreen(onOpenSettings = { showSettings = true })
+                }
             }
         }
     }
 }
 
 @Composable
-fun LauncherScreen() {
+fun LauncherScreen(onOpenSettings: () -> Unit) {
     var isJava by remember { mutableStateOf(true) }
     var version by remember { mutableStateOf("1.26.3") }
     var loader by remember { mutableStateOf("Vanilla") }
@@ -79,7 +84,7 @@ fun LauncherScreen() {
                 ModeTab("Bedrock", !isJava) { isJava = false; loader = "Release" }
             }
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = { msg = "Settings (jald aa raha hai)" }) {
+            IconButton(onClick = { onOpenSettings() }) {
                 Icon(Icons.Default.Settings, "Settings", tint = Color.White)
             }
         }
