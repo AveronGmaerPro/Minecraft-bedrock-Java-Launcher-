@@ -10,41 +10,40 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.floor
 
-private val SBg = Color(0xFF0A0A0A)
-private val SPanel = Color(0xFF161616)
+private val SBg = Color(0xFF07070A)
+private val SPanel = Color(0xFF14141A)
 private val SOrange = Color(0xFFFF6A00)
 private val SMuted = Color(0xFF9A9A9A)
 
-fun getTotalRamGb(context: Context): Int {
+fun getTotalRamMb(context: Context): Int {
     val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
     val info = ActivityManager.MemoryInfo()
     am.getMemoryInfo(info)
-    val gb = info.totalMem / (1024.0 * 1024.0 * 1024.0)
-    return Math.round(gb).toInt()
+    return (info.totalMem / (1024L * 1024L)).toInt()
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("settings", Context.MODE_PRIVATE) }
 
-    val totalGb = remember { getTotalRamGb(context) }
-    val maxGb = (totalGb - 3).coerceAtLeast(1)
-    var ramGb by remember { mutableStateOf(prefs.getInt("ram_gb", 1).coerceIn(1, maxGb)) }
+    val totalMb = remember { getTotalRamMb(context) }
+    val reserve = if (totalMb >= 7000) 3072 else totalMb / 2
+    val maxMb = (((totalMb - reserve) / 256) * 256).coerceAtLeast(512)
+    var ramMb by remember { mutableStateOf(prefs.getInt("ram_mb", maxMb).coerceIn(512, maxMb)) }
 
     BackHandler { onBack() }
 
     Column(Modifier.fillMaxSize().background(SBg).systemBarsPadding().padding(16.dp)) {
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
             }
@@ -52,24 +51,29 @@ fun SettingsScreen(onBack: () -> Unit) {
             Text("Settings", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(24.dp))
 
         Column(
-            Modifier.fillMaxWidth().background(SPanel, RoundedCornerShape(6.dp)).padding(16.dp)
+            Modifier.fillMaxWidth().background(SPanel, RoundedCornerShape(12.dp)).padding(16.dp)
         ) {
             Text("Java RAM", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            Text("Phone ki total RAM: $totalGb GB (3 GB system ke liye chhodi gayi)", color = SMuted, fontSize = 12.sp)
+            Text(
+                "Phone ki RAM: ${"%.1f".format(totalMb / 1024f)} GB",
+                color = SMuted, fontSize = 12.sp
+            )
             Spacer(Modifier.height(12.dp))
-            Text("$ramGb GB", color = SOrange, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text("${"%.2f".format(ramMb / 1024f)} GB", color = SOrange, fontSize = 28.sp, fontWeight = FontWeight.Bold)
 
-            if (maxGb > 1) {
+            if (maxMb > 512) {
                 Slider(
-                    value = ramGb.toFloat(),
-                    onValueChange = { ramGb = floor(it).toInt().coerceIn(1, maxGb) },
-                    onValueChangeFinished = { prefs.edit().putInt("ram_gb", ramGb).apply() },
-                    valueRange = 1f..maxGb.toFloat(),
-                    steps = (maxGb - 2).coerceAtLeast(0),
+                    value = ramMb.toFloat(),
+                    onValueChange = {
+                        ramMb = (Math.round(it / 256f) * 256).coerceIn(512, maxMb)
+                    },
+                    onValueChangeFinished = { prefs.edit().putInt("ram_mb", ramMb).apply() },
+                    valueRange = 512f..maxMb.toFloat(),
+                    steps = (((maxMb - 512) / 256) - 1).coerceAtLeast(0),
                     colors = SliderDefaults.colors(
                         thumbColor = SOrange,
                         activeTrackColor = SOrange,
@@ -77,11 +81,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                     )
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("1 GB", color = SMuted, fontSize = 11.sp)
-                    Text("$maxGb GB", color = SMuted, fontSize = 11.sp)
+                    Text("0.50 GB", color = SMuted, fontSize = 11.sp)
+                    Text("${"%.2f".format(maxMb / 1024f)} GB", color = SMuted, fontSize = 11.sp)
                 }
+                Spacer(Modifier.height(8.dp))
+                Text("Recommended: max se thoda kam rakhiye", color = SMuted, fontSize = 12.sp)
             } else {
-                Text("Is phone me RAM kam hai, 1 GB hi chalega.", color = SMuted, fontSize = 12.sp)
+                Text("Is phone me RAM kam hai, 0.5 GB hi chalega.", color = SMuted, fontSize = 12.sp)
             }
         }
     }
